@@ -1,0 +1,131 @@
+local orb = module.internal('orb') ---走砍
+local ts = module.internal('TS') ---目标
+local pred = module.internal('pred') ---预判
+
+local mymenu = menu("MJ Ashe" .. "  "  .. player.charName, "MJ Ashe")
+
+---Q
+mymenu:menu("qa", " >>> Q ")
+mymenu.qa:header("aaa", "Q")
+mymenu.qa:boolean("qc", " >>>  Q", true)
+---W
+mymenu:menu("wa", " >>> W ")
+mymenu.wa:header("a", "W")
+mymenu.wa:boolean("wc", " >>>  W", true)
+
+---R
+mymenu:menu("ra", " >>> R ")
+mymenu.ra:header("a", "R")
+mymenu.ra:boolean("rc", ">>>  R", true)
+mymenu.ra:slider('rhp', 'R HP', 25, 0, 100, 5)
+mymenu.ra:keybind("rkey", ">>>  R  key", 'A', nil) --
+mymenu:header("a1","不断地修复反馈才能更强大")
+mymenu:header("a1","反馈邮箱:7305116@qq.com")
+
+local ZS = module.load(header.id,"lib")
+
+--*ZS.ts(mymenu.ra.rkey.key)
+
+local w = {range = 1200, delay = 0.25, speed = 2000, width = 200, boundingRadiusMod = 1, collision = {minion = true, wall = true}}
+local rspell = {range = 5000, delay = 0.25, speed = 1800, width = 160, boundingRadiusMod = 1, collision = {hero = true, wall = true}}
+
+local function CheckBuffType(obj, bufftype)
+    if obj then
+        for i = 0, obj.buffManager.count - 1 do
+            local buff = obj.buffManager:get(i)
+            if buff and buff.valid and buff.type == bufftype and (buff.stacks > 0 or buff.stacks2 > 0) then
+                return true
+            end
+        end
+    end
+end
+
+--------
+local function IsValidTarget(object)
+    return object and not object.isDead and object.isVisible and object.isTargetable
+end
+-------
+local function TargetSelection(res, obj, dist)
+    if dist < 1200 then
+      res.obj = obj
+      return true
+    end
+end
+
+local function RTargetSelection(res, obj, dist)
+    if dist < rspell.range then
+      res.obj = obj
+      return true
+    end
+end
+
+local function RGetTarget()
+    return ts.get_result(RTargetSelection).obj
+end
+
+------
+local function GetTarget()
+    return ts.get_result(TargetSelection).obj
+end
+
+
+local function combo()
+    local rtarget = RGetTarget()
+    if IsValidTarget(rtarget) then --
+        if mymenu.ra.rc:get() then
+            if mymenu.ra.rhp:get() > (rtarget.health / rtarget.maxHealth) * 100 then
+                local pos = pred.linear.get_prediction(rspell, rtarget)
+                if pos then
+                    player:castSpell("pos", 3, vec3(pos.endPos.x, game.mousePos.y, os.endPos.y))
+                end
+            end
+        end
+    end
+    local wtarget = GetTarget()
+    if IsValidTarget(wtarget) then
+        if player:spellSlot(1).state == 0 then --
+            if wtarget.pos:dist(player.pos) < 1200 then --
+                if mymenu.wa.wc:get() then
+                    local output = pred.linear.get_prediction(rspell, wtarget) --
+                    if output then --
+                        if not pred.collision.get_prediction(rspell, output, wtarget) then --
+                            player:castSpell("pos", 1, vec3(output.endPos.x, game.mousePos.y, output.endPos.y)) --
+                        end
+                    end
+                end
+            end
+        end
+        if player:spellSlot(0).state == 0 then --
+            if mymenu.qa.qc:get() then
+                if wtarget.pos:dist(player.pos) < player.attackRange then --
+                    player:castSpell('self', 0) --
+                end
+            end
+        end
+    end
+end
+
+local function Rcast()
+    if player:spellSlot(3).state ~= 0 then return end
+    local target = RGetTarget() 
+    if mymenu.ra.rkey:get() then --
+        player:move(game.mousePos) --
+        if IsValidTarget(target) then --
+            local pos = pred.linear.get_prediction(rspell, target)
+            if pos then
+                player:castSpell("pos", 3, vec3(pos.endPos.x, game.mousePos.y, pos.endPos.y))
+            end
+        end
+    end
+end
+
+local function tickAA()
+    Rcast()
+    if orb.menu.combat.key:get() then --
+        combo()
+    end
+end
+
+cb.add(cb.tick,tickAA)
+
+--cb.add(cb.pre_tick, Rcast)
